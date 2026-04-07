@@ -4,9 +4,7 @@ import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mj
 
 export const runtime = "nodejs";
 
-GlobalWorkerOptions.workerSrc = pathToFileURL(
-    path.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs")
-).href;
+import pdfParse from "pdf-parse";
 
 function normalizeResumeText(text) {
     return text
@@ -14,37 +12,6 @@ function normalizeResumeText(text) {
         .replace(/[ \t]+/g, " ")
         .replace(/\n{3,}/g, "\n\n")
         .trim();
-}
-
-async function extractTextFromPdf(file) {
-    const arrayBuffer = await file.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
-
-    const loadingTask = getDocument({
-        data,
-        useWorkerFetch: false,
-        isEvalSupported: false,
-        useSystemFonts: true,
-    });
-
-    const pdf = await loadingTask.promise;
-    const pages = [];
-
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-        const page = await pdf.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-
-        const pageText = textContent.items
-            .map((item) => ("str" in item ? item.str : ""))
-            .join(" ")
-            .trim();
-
-        if (pageText) {
-            pages.push(pageText);
-        }
-    }
-
-    return normalizeResumeText(pages.join("\n\n"));
 }
 
 export async function POST(req) {
@@ -60,7 +27,11 @@ export async function POST(req) {
             return Response.json({ error: "Only PDF files are supported" }, { status: 400 });
         }
 
-        const text = await extractTextFromPdf(file);
+        const buffer = Buffer.from(await file.arrayBuffer());
+
+        const data = await pdfParse(buffer);
+
+        const text = normalizeResumeText(data.text);
 
         if (!text) {
             return Response.json(
@@ -70,6 +41,7 @@ export async function POST(req) {
         }
 
         return Response.json({ text });
+
     } catch (err) {
         console.error("UPLOAD ERROR:", err);
 
