@@ -1,7 +1,3 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
-
 export const runtime = "nodejs";
 
 import pdfParse from "pdf-parse";
